@@ -45,7 +45,17 @@ jobs:
 
       - name: Patch native project (focus plugin, manifest, MainActivity)
         run: python3 patch_project.py
-
+      - name: Debug workspace before patch
+        run: |
+          echo "Working directory: $(pwd)"
+          echo "Listing native-app:"
+          ls -la
+          echo "Listing native-app/android (if exists):"
+          ls -la android || true
+          echo "Show tree (limited) under native-app:"
+          find . -maxdepth 3 -type d -print
+          echo "Show files (limited) under native-app:"
+          find . -maxdepth 3 -type f -print | sed -n '1,200p'
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
