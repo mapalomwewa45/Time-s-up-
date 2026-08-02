@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Times Up — Study Planner</title>
+
+<!-- PWA / offline support -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F172A">
+<link rel="apple-touch-icon" href="pwa-assets/icon-180.png">
+<link rel="icon" href="pwa-assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Time's Up">
+<style>
+  :root{
+    --ink:#0F172A;
+    --ink-soft:#1B2740;
+    --paper:#0F172A;
+    --paper-soft:#16213A;
+    --gold:#C9A34E;
+    --blue:#2B5FAD;
+    --blue-deep:#204A87;
+    --heavy:#B5493B;
+    --moderate:#C9A34E;
+    --light:#6B8F71;
+    --text-dark:#F1EEE3;
+    --text-light:#F7F3EA;
+    --radius:14px;
+    --font-display:'Lora', Georgia, serif;
+    --font-body:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  :root{ color-scheme: dark; }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:pan-y;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:var(--font-body);
+    background:var(--paper);
+    color:var(--text-dark);
+    transition:background .3s ease, color .3s ease;
+    overscroll-behavior:none;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    position:relative;
+    padding-bottom:24px;
+  }
+  .screen{display:none; padding:20px 20px 40px; animation:fadeIn .35s ease;}
+  .screen.active{display:block;}
+  #screen-home, #screen-notes{padding-bottom:150px;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  h1,h2,h3{font-family:var(--font-display); margin:0 0 8px; color:var(--text-dark);}
+  p{line-height:1.5;}
+  .eyebrow{
+    font-family:var(--font-body);
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    font-size:11px;
+    color:var(--gold);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:100%;
+    padding:15px 20px;
+    border-radius:12px;
+    border:none;
+    font-family:var(--font-body);
+    font-weight:600;
+    font-size:15px;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--blue); color:#fff; box-shadow:0 6px 18px rgba(43,95,173,.35);}
+  .btn-primary:hover{background:var(--blue-deep);}
+  .btn-ghost{background:transparent; color:var(--text-dark); border:1.5px solid var(--paper-soft);}
+  .btn-gold{background:var(--gold); color:var(--ink); box-shadow:0 6px 18px rgba(201,163,78,.3);}
+  .btn-row{display:flex; gap:10px; margin-top:20px;}
+  .btn-row .btn{flex:1;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  .icon-btn{
+    width:40px; height:40px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--paper-soft); border:none; cursor:pointer; font-size:18px;
+    color:var(--text-dark);
+  }
+
+  /* ---------- Home / Menu ---------- */
+  .home-header{display:flex; justify-content:space-between; align-items:center; padding-top:8px; margin-bottom:18px;}
+  .brand{font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:.02em;}
+  .brand span{color:var(--gold);}
+
+  .verse-card{
+    background:linear-gradient(135deg, var(--ink) 0%, var(--ink-soft) 100%);
+    color:var(--text-light);
+    border-radius:var(--radius);
+    padding:26px 22px;
+    position:relative;
+    overflow:hidden;
+    margin-bottom:22px;
+  }
+  .verse-card::before{
+    content:"";
+    position:absolute; top:-30px; right:-30px;
+    width:120px; height:120px;
+    border:1px solid rgba(201,163,78,.25);
+    border-radius:50%;
+  }
+  .verse-mark{font-family:var(--font-display); font-size:38px; color:var(--gold); line-height:1; margin-bottom:6px;}
+  .verse-text{font-family:var(--font-display); font-size:17px; line-height:1.5; margin-bottom:10px;}
+  .verse-ref{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); opacity:.9;}
+
+  .empty-state{
+    border:1.5px dashed var(--paper-soft);
+    border-radius:var(--radius);
+    padding:26px 18px;
+    text-align:center;
+    color:var(--text-dark);
+    opacity:.75;
+    margin-bottom:18px;
+  }
+
+  .plan-summary{
+    background:var(--paper-soft);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:16px;
+  }
+  .plan-summary .row{display:flex; justify-content:space-between; align-items:center;}
+  .progress-track{
+    width:100%; height:10px; border-radius:6px; background:rgba(0,0,0,.08);
+    overflow:hidden; margin:10px 0 4px;
+  }
+  .progress-fill{height:100%; background:linear-gradient(90deg, var(--gold), var(--blue)); border-radius:6px; transition:width .4s ease;}
+
+  .footer-credit{
+    text-align:center; font-size:12px; opacity:.55; margin-top:30px; letter-spacing:.03em;
+  }
+
+  /* ---------- Stepper ---------- */
+  .stepper{display:flex; gap:6px; margin-bottom:18px;}
+  .stepper .dot{flex:1; height:4px; border-radius:3px; background:var(--paper-soft);}
+  .stepper .dot.active{background:var(--blue);}
+  .stepper .dot.done{background:var(--gold);}
+
+  .back-row{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+
+  /* ---------- Tier groups & subject cards ---------- */
+  .tier-block{margin-bottom:20px;}
+  .tier-label{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .tier-chip{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:3px 9px; border-radius:20px; color:#fff;}
+  .tier-chip.heavy{background:var(--heavy);}
+  .tier-chip.moderate{background:var(--moderate); color:#3a2b09;}
+  .tier-chip.light{background:var(--light);}
+  .tier-hint{font-size:12px; opacity:.6;}
+
+  .subject-card{
+    display:flex; align-items:center; gap:12px;
+    background:var(--paper-soft);
+    border-radius:12px;
+    padding:14px;
+    margin-bottom:8px;
+    cursor:pointer;
+    border:2px solid transparent;
+    position:relative;
+    overflow:hidden;
+  }
+  .subject-card .spine{width:5px; align-self:stretch; border-radius:4px; flex-shrink:0;}
+  .subject-card.heavy .spine{background:var(--heavy); width:7px;}
+  .subject-card.moderate .spine{background:var(--moderate); width:5px;}
+  .subject-card.light .spine{background:var(--light); width:3px;}
+  .subject-card.selected{border-color:var(--blue); background:rgba(43,95,173,.08);}
+  .subject-name{font-weight:600; font-size:15px; flex:1;}
+  .check-circle{
+    width:22px; height:22px; border-radius:50%; border:2px solid var(--paper-soft);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:12px; color:#fff;
+  }
+  .subject-card.selected .check-circle{background:var(--blue); border-color:var(--blue);}
+  .subject-delete{
+    width:26px; height:26px; border-radius:50%; flex-shrink:0;
+    border:1.5px solid var(--heavy); background:rgba(181,73,59,.12); color:var(--heavy);
+    font-size:14px; font-weight:700; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .subject-delete:active{background:var(--heavy); color:#fff;}
+
+  /* ---------- Days selector ---------- */
+  .days-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:18px 0;}
+  .day-num{
+    aspect-ratio:1; border-radius:12px; background:var(--paper-soft);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:700; cursor:pointer; border:2px solid transparent;
+  }
+  .day-num.selected{border-color:var(--gold); background:rgba(201,163,78,.15); color:var(--gold);}
+
+  /* ---------- Customize ---------- */
+  .day-tabs{display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:14px;}
+  .day-tab{
+    flex-shrink:0; padding:8px 14px; border-radius:20px; background:var(--paper-soft);
+    font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
+  }
+  .day-tab.active{background:var(--blue); color:#fff;}
+
+  .cust-item{
+    background:var(--paper-soft); border-radius:12px; padding:14px; margin-bottom:10px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .cust-item .spine{width:5px; align-self:stretch; border-radius:4px;}
+  .cust-item.heavy .spine{background:var(--heavy);}
+  .cust-item.moderate .spine{background:var(--moderate);}
+  .cust-item.light .spine{background:var(--light);}
+  .cust-main{flex:1;}
+  .cust-name{font-weight:600; font-size:14px; margin-bottom:6px;}
+  .duration-control{display:flex; align-items:center; gap:8px;}
+  .duration-control button{
+    width:28px; height:28px; border-radius:8px; border:none; background:var(--paper);
+    font-size:16px; cursor:pointer; color:var(--text-dark);
+  }
+  .duration-val{font-size:13px; font-weight:600; min-width:56px; text-align:center;}
+  .drag-handle{cursor:grab; opacity:.4; font-size:18px; padding:0 4px;}
+  .cust-item.dragging{opacity:.4;}
+
+  input[type="text"], select{
+    width:100%; padding:14px; border-radius:12px; border:1.5px solid var(--paper-soft);
+    background:var(--paper); color:var(--text-dark); font-size:15px; font-family:var(--font-body);
+    margin-bottom:6px;
+  }
+  label.field-label{font-size:12px; text-transform:uppercase; letter-spacing:.08em; opacity:.6; margin-bottom:6px; display:block; margin-top:16px;}
+
+  /* ---------- Timetable ---------- */
+  .tt-header{margin-bottom:16px;}
+  .tt-progress-wrap{margin-bottom:20px;}
+  .tt-day-select{display:flex; gap:6px; overflow-x:auto; margin-bottom:16px; padding-bottom:4px;}
+
+  .tt-item{
+    display:flex; align-items:center; gap:12px;
+    background:var(--paper-soft); border-radius:12px; padding:14px; margin-bottom:8px;
+  }
+  .tt-item.checked{opacity:.55;}
+  .tt-item .spine{width:5px; align-self:stretch; border-radius:4px;}
+  .tt-item.heavy .spine{background:var(--heavy);}
+  .tt-item.moderate .spine{background:var(--moderate);}
+  .tt-item.light .spine{background:var(--light);}
+  .tt-main{flex:1;}
+  .tt-name{font-weight:600; font-size:15px;}
+  .tt-name.strike{text-decoration:line-through;}
+  .tt-dur{font-size:12px; opacity:.6; margin-top:2px;}
+  .tt-checkbox{
+    width:26px; height:26px; border-radius:8px; border:2px solid var(--paper-soft);
+    background:var(--paper); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .tt-checkbox.on{background:var(--blue); border-color:var(--blue); color:#fff;}
+
+  /* ---------- Weekly report ---------- */
+  .report-card{
+    background:var(--paper-soft); border-radius:var(--radius); padding:18px; margin-bottom:14px;
+  }
+  .report-card.focus{border:1.5px solid var(--heavy);}
+  .report-card.star{border:1.5px solid var(--gold);}
+  .report-tag{font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; margin-bottom:6px;}
+  .report-tag.focus{color:var(--heavy);}
+  .report-tag.star{color:var(--gold);}
+
+  /* ---------- Settings ---------- */
+  .settings-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 0; border-bottom:1px solid var(--paper-soft);
+  }
+  .settings-row:last-child{border-bottom:none;}
+  .settings-title{font-weight:600; font-size:14px;}
+  .settings-sub{font-size:12px; opacity:.6; margin-top:2px;}
+  .switch{
+    width:46px; height:26px; border-radius:20px; background:var(--paper-soft); position:relative; cursor:pointer; flex-shrink:0;
+  }
+  .switch.on{background:var(--blue);}
+  .switch::after{
+    content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
+    background:#fff; transition:left .2s ease; box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .switch.on::after{left:23px;}
+  .note-box{
+    background:rgba(201,163,78,.1); border:1px solid rgba(201,163,78,.3); border-radius:10px;
+    padding:12px 14px; font-size:12.5px; line-height:1.5; margin-top:10px; opacity:.9;
+  }
+  .app-tag{
+    display:inline-flex; align-items:center; gap:6px; background:var(--paper); border:1.5px solid var(--paper-soft);
+    padding:8px 12px; border-radius:20px; font-size:13px; margin:4px 4px 0 0; cursor:pointer;
+  }
+  .app-tag.on{border-color:var(--heavy); color:var(--heavy); background:rgba(181,73,59,.08);}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--text-light); padding:12px 20px; border-radius:30px;
+    font-size:13px; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,.3);
+    animation:toastIn .25s ease;
+  }
+  @keyframes toastIn{from{opacity:0; transform:translate(-50%,10px);} to{opacity:1; transform:translate(-50%,0);}}
+
+  .focus-overlay{
+    position:fixed; inset:0; background:rgba(15,23,42,.96); color:#F7F3EA; z-index:300;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px;
+  }
+  .focus-overlay .verse-mark{font-size:50px;}
+
+  /* ---------- Countdown timer ---------- */
+  .tt-item{cursor:pointer;}
+  .timer-meta{text-align:center; margin:6px 0 4px;}
+  .timer-display{
+    font-family:var(--font-display); font-size:64px; font-weight:700;
+    text-align:center; margin:26px 0 18px; letter-spacing:.02em; font-variant-numeric:tabular-nums;
+  }
+  .timer-state{text-align:center; font-size:12.5px; opacity:.6; margin-bottom:6px; text-transform:uppercase; letter-spacing:.08em;}
+  .timer-btns{display:flex; gap:10px; margin-top:26px;}
+  .timer-btns .btn{flex:1;}
+  .btn-stop{background:var(--heavy); color:#fff;}
+  .btn-stop:hover{opacity:.9;}
+
+  /* ---------- Plan list (WhatsApp-style chat list) ---------- */
+  .plan-row{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 4px; cursor:pointer;
+    border-bottom:1px solid var(--paper-soft);
+  }
+  .plan-row:first-child{ padding-top:4px; }
+  .plan-avatar{
+    width:48px; height:48px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg, var(--blue), var(--blue-deep));
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-weight:700; font-size:18px; color:#fff;
+  }
+  .plan-row-main{flex:1; min-width:0;}
+  .plan-row-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .plan-row-name{font-weight:600; font-size:15.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .plan-row-pct{font-size:12px; font-weight:700; color:var(--blue); flex-shrink:0;}
+  .plan-row-sub{font-size:12.5px; opacity:.6; margin-top:2px;}
+  .plan-row-bar{width:100%; height:5px; border-radius:4px; background:rgba(255,255,255,.08); margin-top:6px; overflow:hidden;}
+  .plan-row-bar-fill{height:100%; background:linear-gradient(90deg, var(--gold), var(--blue)); border-radius:4px;}
+  .plan-row-menu{
+    width:34px; height:34px; border-radius:50%; border:none; background:transparent;
+    color:var(--text-dark); font-size:15px; flex-shrink:0; cursor:pointer;
+  }
+
+  /* ---------- Floating action button ---------- */
+  .fab{
+    position:fixed; bottom:calc(74px + 22px); right:calc(50% - 240px + 22px);
+    width:58px; height:58px; border-radius:50%;
+    background:var(--blue); color:#fff; border:none;
+    font-size:28px; line-height:1; cursor:pointer;
+    box-shadow:0 10px 24px rgba(43,95,173,.45);
+    display:flex; align-items:center; justify-content:center;
+    z-index:120;
+  }
+  @media (max-width:480px){ .fab{ right:22px; } }
+
+  /* ---------- Action sheet (edit / delete) ---------- */
+  .sheet-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:400;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .sheet{
+    width:100%; max-width:480px; background:var(--paper-soft);
+    border-radius:18px 18px 0 0; padding:8px 10px 26px;
+    animation:sheetUp .2s ease;
+  }
+  @keyframes sheetUp{from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .sheet-title{font-size:13px; opacity:.55; padding:12px 12px 6px; font-weight:600;}
+  .sheet-item{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 12px; border-radius:10px; cursor:pointer; font-size:15px; font-weight:600;
+  }
+  .sheet-item.danger{color:var(--heavy);}
+  .sheet-item:active{background:rgba(255,255,255,.06);}
+
+  /* ---------- Bottom navigation ---------- */
+  .bottom-nav{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px;
+    display:flex; background:var(--paper-soft); border-top:1px solid rgba(255,255,255,.08);
+    z-index:150;
+  }
+  .bottom-nav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+    cursor:pointer; color:var(--text-dark); opacity:.5; font-size:11px; font-weight:600;
+  }
+  .bottom-nav-item.active{opacity:1; color:var(--blue);}
+  .bottom-nav-icon{font-size:20px;}
+
+  /* ---------- Notes (Google Keep style) ---------- */
+  .note-card{
+    background:var(--paper-soft); border-radius:12px; padding:14px; margin-bottom:10px; cursor:pointer;
+    border-left:4px solid var(--gold);
+  }
+  .note-card-text{
+    font-size:14px; line-height:1.5; white-space:pre-wrap;
+    max-height:80px; overflow:hidden;
+  }
+  .note-card-meta{font-size:11px; opacity:.5; margin-top:8px;}
+  .note-textarea{
+    width:100%; min-height:65vh; border:none; background:transparent; color:var(--text-dark);
+    font-family:var(--font-body); font-size:16px; line-height:1.6; resize:none; outline:none;
+  }
+
+  /* ---------- Day toggle (choose exact study days) ---------- */
+  .day-toggle-row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px;}
+  .day-toggle-chip{
+    flex:1; min-width:38px; padding:10px 0; text-align:center; border-radius:10px; background:var(--paper-soft);
+    font-size:12.5px; font-weight:700; cursor:pointer; border:2px solid transparent;
+  }
+  .day-toggle-chip.on{border-color:var(--blue); background:rgba(43,95,173,.12); color:var(--blue);}
+
+  /* ---------- Add a custom subject ---------- */
+  .add-subject-box{border:1.5px dashed var(--paper-soft); border-radius:12px; padding:14px; margin-top:4px; margin-bottom:20px;}
+  .add-subject-row{display:flex; gap:8px; margin-top:8px;}
+  .add-subject-row input{margin-bottom:0; flex:2;}
+  .add-subject-row select{margin-bottom:0; flex:1;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="screen active">
+    <div class="home-header">
+      <div class="brand">Time's <span>Up</span></div>
+      <button class="icon-btn" onclick="goTo('screen-settings')" aria-label="Settings">⚙️</button>
+    </div>
+
+    <div class="verse-card">
+      <div class="verse-mark">"</div>
+      <div class="verse-text">Lazy people are soon poor; hard workers get rich.</div>
+      <div class="verse-ref">Proverbs 10:4, NLT</div>
+    </div>
+
+    <div id="home-plan-area"></div>
+
+    <div class="footer-credit">Powered by Mwewa</div>
+
+    <button class="fab" onclick="startBuild()" aria-label="Build a new study plan">+</button>
+  </section>
+
+  <!-- ============ BUILD: SUBJECTS ============ -->
+  <section id="screen-subjects" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goTo('screen-home')">←</button>
+      <div class="eyebrow">Step 1 of 4</div>
+    </div>
+    <div class="stepper"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <h2>Choose your subjects</h2>
+    <p style="opacity:.65; font-size:13.5px; margin-bottom:18px;">Tap every subject you want on your timetable. Heavy subjects need more focus time, light subjects need less.</p>
+
+    <div id="subject-tiers"></div>
+
+    <div class="add-subject-box">
+      <div class="settings-title" style="margin-bottom:2px;">Don't see your subject?</div>
+      <div class="settings-sub">Add your own — it's saved for every future timetable too.</div>
+      <div class="add-subject-row">
+        <input type="text" id="new-subject-name" placeholder="Subject name">
+        <select id="new-subject-tier">
+          <option value="heavy">Heavy</option>
+          <option value="moderate">Moderate</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:10px;" onclick="addCustomSubject()">+ Add subject</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-to-days" onclick="goTo('screen-days')" disabled>Next: pick study days</button>
+    </div>
+  </section>
+
+  <!-- ============ BUILD: DAYS ============ -->
+  <section id="screen-days" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goTo('screen-subjects')">←</button>
+      <div class="eyebrow">Step 2 of 4</div>
+    </div>
+    <div class="stepper"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+    <h2>How many days a week?</h2>
+    <p style="opacity:.65; font-size:13.5px; margin-bottom:8px;">Pick how many days you'll study. You'll set which subjects go on which day next.</p>
+
+    <div class="days-grid" id="days-grid"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-to-customize" onclick="goTo('screen-customize')" disabled>Next: customize days</button>
+    </div>
+  </section>
+
+  <!-- ============ BUILD: CUSTOMIZE ============ -->
+  <section id="screen-customize" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goTo('screen-days')">←</button>
+      <div class="eyebrow">Step 3 of 4</div>
+    </div>
+    <div class="stepper"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+    <h2>Customize each day</h2>
+    <p style="opacity:.65; font-size:13.5px; margin-bottom:14px;">Pick subjects per day, set minutes, and drag to reorder.</p>
+
+    <label class="field-label" style="margin-top:0;">Which days do you study?</label>
+    <div class="day-toggle-row" id="cust-day-toggle"></div>
+
+    <div class="day-tabs" id="cust-day-tabs"></div>
+    <div id="cust-subject-picker" style="margin-bottom:14px;"></div>
+    <div id="cust-list"></div>
+
+    <label class="field-label">Name your timetable</label>
+    <input type="text" id="plan-name-input" placeholder="e.g. Term 2 Study Plan">
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="savePlan()">Save my timetable</button>
+    </div>
+  </section>
+
+  <!-- ============ TIMETABLE ============ -->
+  <section id="screen-timetable" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goTo('screen-home')">←</button>
+      <div class="eyebrow" id="tt-plan-name">My Timetable</div>
+    </div>
+
+    <div class="tt-progress-wrap">
+      <div class="row" style="display:flex; justify-content:space-between; font-size:13px; font-weight:600;">
+        <span id="tt-progress-label">Today's progress</span>
+        <span id="tt-progress-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="tt-progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="tt-day-select" id="tt-day-select"></div>
+    <div id="tt-list"></div>
+
+    <button class="btn btn-ghost" style="margin-top:14px;" onclick="openReport()">View weekly report</button>
+  </section>
+
+  <!-- ============ COUNTDOWN TIMER ============ -->
+  <section id="screen-countdown" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="exitTimerScreen()">←</button>
+      <div class="eyebrow">Study session</div>
+    </div>
+    <div class="timer-meta"><span class="tier-chip" id="timer-tier-chip"></span></div>
+    <h2 style="text-align:center;" id="timer-subject-name">Subject</h2>
+    <div class="timer-state" id="timer-state-label">Ready</div>
+    <div class="timer-display" id="timer-display">00:00</div>
+    <div class="progress-track"><div class="progress-fill" id="timer-progress-fill" style="width:0%"></div></div>
+    <div class="timer-btns">
+      <button class="btn btn-ghost" id="btn-pause" onclick="pauseTimer()">Pause</button>
+      <button class="btn btn-primary" id="btn-start" onclick="startTimer()">Start</button>
+      <button class="btn btn-stop" id="btn-stop" onclick="stopTimer()">Stop</button>
+    </div>
+    <p style="text-align:center; font-size:12px; opacity:.55; margin-top:22px;">Stopping early or letting the timer run out both check this subject off and log your time in the weekly report.</p>
+  </section>
+
+  <!-- ============ WEEKLY REPORT ============ -->
+  <section id="screen-report" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goTo('screen-timetable')">←</button>
+      <div class="eyebrow">Week in review</div>
+    </div>
+    <h2>Weekly report</h2>
+    <p style="opacity:.65; font-size:13.5px; margin-bottom:18px;">Based on completed study sessions this week.</p>
+    <div id="report-body"></div>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="startNewWeek()">Start a new week</button>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="screen-settings" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="goTo('screen-home')">←</button>
+      <div class="eyebrow">Settings</div>
+    </div>
+    <h2>Settings</h2>
+
+    <h3 style="margin-top:22px; font-size:15px;">Study reminders</h3>
+    <div class="settings-row">
+      <div>
+        <div class="settings-title">Notifications</div>
+        <div class="settings-sub">Get notified when it's time to study</div>
+      </div>
+      <div class="switch" id="notif-switch" onclick="toggleNotifications()"></div>
+    </div>
+    <label class="field-label" style="margin-top:10px;">Daily reminder time</label>
+    <input type="time" id="reminder-time-input" value="16:00" onchange="setReminderTime(this.value)">
+    <div class="note-box">In a plain browser tab, reminders only fire while this tab is open. Once this app is packaged with Capacitor and the official <code>@capacitor/local-notifications</code> plugin is installed, the same code schedules real native notifications at your chosen time on every study day — even when the app is fully closed.</div>
+
+    <h3 style="margin-top:26px; font-size:15px;">Focus mode</h3>
+    <div class="settings-row">
+      <div>
+        <div class="settings-title">Block distracting apps</div>
+        <div class="settings-sub">Silence chosen apps during study sessions</div>
+      </div>
+      <div class="switch" id="focus-switch" onclick="toggleFocusMode()"></div>
+    </div>
+    <div id="focus-apps-area" style="display:none;">
+      <p style="font-size:12.5px; opacity:.65; margin:10px 0 4px;">Choose apps to block:</p>
+      <div id="focus-app-tags"></div>
+    </div>
+    <div class="note-box">A web page can't actually block other apps on your phone — Android doesn't allow that. This switch stores your chosen apps and starts a study timer. Once you package this app with Capacitor and add a native plugin (using Android's UsageStatsManager or AccessibilityService), wire it up so calling code like <code>window.NativeFocus.start(['com.example.app', 'com.another.app'], 25)</code> blocks those apps for that many minutes. The app already calls this hook automatically whenever a timer starts with focus mode on.</div>
+
+    <div class="footer-credit">Powered by Mwewa</div>
+  </section>
+
+  <!-- ============ NOTES ============ -->
+  <section id="screen-notes" class="screen">
+    <div class="home-header">
+      <div class="brand">Notes</div>
+      <div style="width:40px;"></div>
+    </div>
+    <div id="notes-list"></div>
+    <div class="footer-credit">Powered by Mwewa</div>
+    <button class="fab" onclick="openNoteEditor(null)" aria-label="New note">+</button>
+  </section>
+
+  <!-- ============ NOTE EDITOR ============ -->
+  <section id="screen-note-editor" class="screen">
+    <div class="back-row">
+      <button class="icon-btn" onclick="closeNoteEditor()">←</button>
+      <div class="eyebrow" id="note-editor-time">New note</div>
+      <button class="icon-btn" id="note-delete-btn" style="margin-left:auto;" onclick="deleteCurrentNote()" aria-label="Delete note">🗑️</button>
+    </div>
+    <textarea id="note-textarea" class="note-textarea" placeholder="Type your note…"></textarea>
+  </section>
+
+</div>
+
+<div class="bottom-nav" id="bottom-nav">
+  <div class="bottom-nav-item" id="nav-timetables" onclick="goTo('screen-home')">
+    <div class="bottom-nav-icon">📅</div>
+    <div>Timetables</div>
+  </div>
+  <div class="bottom-nav-item" id="nav-notes" onclick="goTo('screen-notes')">
+    <div class="bottom-nav-icon">📝</div>
+    <div>Notes</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   TIME'S UP — STUDY PLANNER
+   All data persisted to localStorage so progress survives reload.
+   ============================================================ */
+
+const STORAGE_KEY = 'timesup_state_v1';
+
+const SUBJECT_LIBRARY = [
+  {id:'math', name:'Math', tier:'heavy'},
+  {id:'physics', name:'Physics', tier:'heavy'},
+  {id:'chemistry', name:'Chemistry', tier:'heavy'},
+  {id:'addmath', name:'Additional Mathematics', tier:'heavy'},
+  {id:'biology', name:'Biology', tier:'moderate'},
+  {id:'english', name:'English', tier:'moderate'},
+  {id:'pe', name:'Physical Education', tier:'moderate'},
+  {id:'accounts', name:'Accounts', tier:'moderate'},
+  {id:'nutrition', name:'Food and Nutrition', tier:'light'},
+  {id:'civic', name:'Civic Education', tier:'light'},
+];
+const TIER_ORDER = ['heavy','moderate','light'];
+const TIER_LABEL = {heavy:'Heavy', moderate:'Moderate', light:'Light'};
+const TIER_DEFAULT_MIN = {heavy:60, moderate:40, light:20};
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// Apps offered in Focus Mode, each mapped to its real Android package name
+// so window.NativeFocus.start() can be wired to a native blocker later.
+const DISTRACTION_APPS = [
+  {name:'Instagram', pkg:'com.instagram.android'},
+  {name:'TikTok', pkg:'com.zhiliaoapp.musically'},
+  {name:'YouTube', pkg:'com.google.android.youtube'},
+  {name:'Facebook', pkg:'com.facebook.katana'},
+  {name:'WhatsApp', pkg:'com.whatsapp'},
+  {name:'Games', pkg:'com.example.games'},
+];
+
+function defaultState(){
+  return {
+    settings:{ notifications:false, focusMode:false, focusApps:[], reminderTime:'16:00' },
+    customSubjects:[], // user-added subjects, reused across every plan
+    build:{ selectedSubjects:[], numDays:5, activeDays:[1,2,3,4,5], days:{}, planNameDraft:'', editingPlanId:null },
+    plans:[], // [{id, name, days:{0..6:[{id,name,tier,duration}]}, activeDays:[...], createdAt}]
+    activePlanId:null,
+    progress:{},  // { planId: { weekStartISO: { '<day>_<i>_<subjectId>': true } } }
+    timeSpent:{}, // { planId: { weekStartISO: { '<day>_<i>_<subjectId>': minutes } } }
+    notes:[],     // [{id, text, updatedAt}] — a simple Keep-style notepad
+    weekStart:null // ISO date string for Monday of the currently tracked week
+  };
+}
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      const merged = Object.assign(defaultState(), parsed);
+      merged.settings = Object.assign(defaultState().settings, parsed.settings||{});
+      merged.customSubjects = parsed.customSubjects || [];
+      merged.build = Object.assign(defaultState().build, parsed.build||{});
+      merged.plans = parsed.plans || [];
+      merged.progress = parsed.progress || {};
+      merged.timeSpent = parsed.timeSpent || {};
+      merged.notes = parsed.notes || [];
+      // migrate the old single-plan format from an earlier version of the app
+      if(parsed.plan && (!merged.plans || merged.plans.length===0)){
+        const id = 'plan_' + Date.now().toString(36);
+        parsed.plan.id = id;
+        merged.plans = [parsed.plan];
+        merged.activePlanId = id;
+        if(parsed.progress && !parsed.progress[id]) merged.progress = { [id]: parsed.progress };
+      }
+      return merged;
+    }
+  }catch(e){ console.warn('Could not load saved data', e); }
+  return defaultState();
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn('Could not save data', e); }
+}
+function allSubjects(){ return SUBJECT_LIBRARY.concat(state.customSubjects||[]); }
+function getActivePlan(){ return state.plans.find(p=>p.id===state.activePlanId) || null; }
+
+/* ---------- Navigation ---------- */
+function goTo(id){
+  if(id==='screen-customize') enterCustomize();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='screen-home') renderHome();
+  if(id==='screen-timetable') renderTimetable();
+  if(id==='screen-settings') renderSettings();
+  if(id==='screen-notes') renderNotesList();
+  const topLevel = (id==='screen-home' || id==='screen-notes');
+  document.getElementById('bottom-nav').style.display = topLevel ? 'flex' : 'none';
+  document.getElementById('nav-timetables').classList.toggle('active', id==='screen-home');
+  document.getElementById('nav-notes').classList.toggle('active', id==='screen-notes');
+}
+
+function startBuild(){
+  state.build = { selectedSubjects:[], numDays:5, activeDays:[1,2,3,4,5], days:{}, planNameDraft:'', editingPlanId:null };
+  saveState();
+  renderSubjectPicker();
+  renderDaysGrid();
+  goTo('screen-subjects');
+}
+
+/* ---------- STEP 1: Subjects ---------- */
+function renderSubjectPicker(){
+  const container = document.getElementById('subject-tiers');
+  container.innerHTML = '';
+  TIER_ORDER.forEach(tier=>{
+    const subs = allSubjects().filter(s=>s.tier===tier);
+    if(subs.length===0) return;
+    const block = document.createElement('div');
+    block.className = 'tier-block';
+    block.innerHTML = `<div class="tier-label">
+        <span class="tier-chip ${tier}">${TIER_LABEL[tier]}</span>
+        <span class="tier-hint">${tier==='heavy'?'Needs the most focus':tier==='moderate'?'Steady effort':'Quick review'}</span>
+      </div>`;
+    subs.forEach(sub=>{
+      const selected = state.build.selectedSubjects.includes(sub.id);
+      const card = document.createElement('div');
+      card.className = `subject-card ${tier} ${selected?'selected':''}`;
+      const isCustom = sub.id.startsWith('custom_');
+      card.innerHTML = `<div class="spine"></div><div class="subject-name">${escapeHtml(sub.name)}</div>${isCustom?'<button class="subject-delete" aria-label="Delete subject">✕</button>':''}<div class="check-circle">${selected?'✓':''}</div>`;
+      if(isCustom){
+        card.querySelector('.subject-delete').onclick = (e)=>{ e.stopPropagation(); deleteCustomSubject(sub.id); };
+      }
+      card.onclick = ()=>toggleSubject(sub.id);
+      block.appendChild(card);
+    });
+    container.appendChild(block);
+  });
+  updateSubjectNextBtn();
+}
+function toggleSubject(id){
+  const idx = state.build.selectedSubjects.indexOf(id);
+  if(idx>-1) state.build.selectedSubjects.splice(idx,1);
+  else state.build.selectedSubjects.push(id);
+  saveState();
+  renderSubjectPicker();
+}
+function updateSubjectNextBtn(){
+  document.getElementById('btn-to-days').disabled = state.build.selectedSubjects.length===0;
+}
+function addCustomSubject(){
+  const nameInput = document.getElementById('new-subject-name');
+  const tierSelect = document.getElementById('new-subject-tier');
+  const name = nameInput.value.trim();
+  if(!name){ toast('Type a subject name first'); return; }
+  const tier = tierSelect.value;
+  const id = 'custom_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_') + '_' + Date.now().toString(36);
+  state.customSubjects.push({id, name, tier});
+  state.build.selectedSubjects.push(id);
+  saveState();
+  nameInput.value = '';
+  renderSubjectPicker();
+  toast(name + ' added to your subjects');
+}
+function deleteCustomSubject(id){
+  const sub = state.customSubjects.find(s=>s.id===id);
+  if(!sub) return;
+  if(!confirm('Remove "'+sub.name+'" from your subjects?')) return;
+  state.customSubjects = state.customSubjects.filter(s=>s.id!==id);
+  state.build.selectedSubjects = state.build.selectedSubjects.filter(sid=>sid!==id);
+  saveState();
+  renderSubjectPicker();
+  toast(sub.name + ' removed');
+}
+
+/* ---------- STEP 2: Days ---------- */
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderDaysGrid();
+  renderHome();
+  document.getElementById('nav-timetables').classList.add('active');
+});
+
+function renderDaysGrid(){
+  const grid = document.getElementById('days-grid');
+  grid.innerHTML = '';
+  for(let n=1;n<=7;n++){
+    const el = document.createElement('div');
+    el.className = 'day-num' + (state.build.numDays===n?' selected':'');
+    el.textContent = n;
+    el.onclick = ()=>{
+      state.build.numDays = n;
+      const order = [1,2,3,4,5,6,0]; // default: start on Monday
+      state.build.activeDays = order.slice(0,n).sort((a,b)=>a-b);
+      saveState();
+      renderDaysGrid();
+      document.getElementById('btn-to-customize').disabled = false;
+    };
+    grid.appendChild(el);
+  }
+}
+
+/* ---------- STEP 3: Customize ---------- */
+let custActiveDay = null;
+
+function buildDefaultDayItems(){
+  // Shuffled so the arrangement differs day to day by default; users can still drag to reorder.
+  return shuffle(state.build.selectedSubjects.map(id=>{
+    const s = allSubjects().find(x=>x.id===id);
+    return {id:s.id, name:s.name, tier:s.tier, duration:TIER_DEFAULT_MIN[s.tier]};
+  }));
+}
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function enterCustomize(){
+  if(!state.build.activeDays || !state.build.activeDays.length) state.build.activeDays = [1,2,3,4,5];
+  if(custActiveDay===null || !state.build.activeDays.includes(custActiveDay)) custActiveDay = state.build.activeDays[0];
+  if(!state.build.days) state.build.days = {};
+  state.build.activeDays.forEach(d=>{
+    if(!state.build.days[d]) state.build.days[d] = buildDefaultDayItems();
+  });
+  document.getElementById('plan-name-input').value = state.build.planNameDraft || '';
+  renderDayToggleRow();
+  renderCustomizeTabs();
+  renderCustomizeList();
+  renderCustSubjectPicker();
+}
+function renderDayToggleRow(){
+  const wrap = document.getElementById('cust-day-toggle');
+  wrap.innerHTML = '';
+  DAY_NAMES.forEach((name, d)=>{
+    const chip = document.createElement('div');
+    chip.className = 'day-toggle-chip' + (state.build.activeDays.includes(d)?' on':'');
+    chip.textContent = name;
+    chip.onclick = ()=>toggleCustDay(d);
+    wrap.appendChild(chip);
+  });
+}
+function toggleCustDay(d){
+  const idx = state.build.activeDays.indexOf(d);
+  if(idx>-1){
+    if(state.build.activeDays.length===1){ toast('Keep at least one study day'); return; }
+    state.build.activeDays.splice(idx,1);
+  } else {
+    state.build.activeDays.push(d);
+    state.build.activeDays.sort((a,b)=>a-b);
+    if(!state.build.days[d]) state.build.days[d] = buildDefaultDayItems();
+  }
+  state.build.numDays = state.build.activeDays.length;
+  if(custActiveDay===null || !state.build.activeDays.includes(custActiveDay)) custActiveDay = state.build.activeDays[0];
+  saveState();
+  renderDayToggleRow();
+  renderCustomizeTabs();
+  renderCustomizeList();
+  renderCustSubjectPicker();
+}
+function renderCustomizeTabs(){
+  const wrap = document.getElementById('cust-day-tabs');
+  wrap.innerHTML = '';
+  state.build.activeDays.forEach(d=>{
+    const tab = document.createElement('div');
+    tab.className = 'day-tab' + (d===custActiveDay?' active':'');
+    tab.textContent = DAY_NAMES[d];
+    tab.onclick = ()=>{ custActiveDay=d; renderCustomizeTabs(); renderCustomizeList(); renderCustSubjectPicker(); };
+    wrap.appendChild(tab);
+  });
+}
+function renderCustSubjectPicker(){
+  const wrap = document.getElementById('cust-subject-picker');
+  const current = state.build.days[custActiveDay] || [];
+  const currentIds = current.map(x=>x.id);
+  const available = state.build.selectedSubjects.filter(id=>!currentIds.includes(id));
+  if(available.length===0){ wrap.innerHTML = '<p style="font-size:12.5px; opacity:.55;">All chosen subjects are already on this day.</p>'; return; }
+  wrap.innerHTML = '<p style="font-size:12.5px; opacity:.6; margin-bottom:8px;">Add a subject to this day:</p>';
+  const row = document.createElement('div');
+  available.forEach(id=>{
+    const s = allSubjects().find(x=>x.id===id);
+    if(!s) return;
+    const tag = document.createElement('span');
+    tag.className = 'app-tag';
+    tag.textContent = '+ ' + s.name;
+    tag.onclick = ()=>{
+      state.build.days[custActiveDay].push({id:s.id, name:s.name, tier:s.tier, duration:TIER_DEFAULT_MIN[s.tier]});
+      saveState();
+      renderCustomizeList();
+      renderCustSubjectPicker();
+    };
+    row.appendChild(tag);
+  });
+  wrap.appendChild(row);
+}
+let dragFromIdx = null;
+function renderCustomizeList(){
+  const list = document.getElementById('cust-list');
+  list.innerHTML = '';
+  const items = state.build.days[custActiveDay] || [];
+  if(items.length===0){ list.innerHTML = '<div class="empty-state">No subjects on this day yet.</div>'; return; }
+  items.forEach((item, i)=>{
+    const el = document.createElement('div');
+    el.className = `cust-item ${item.tier}`;
+    el.draggable = true;
+    el.innerHTML = `
+      <span class="drag-handle">⠿</span>
+      <div class="spine"></div>
+      <div class="cust-main">
+        <div class="cust-name">${escapeHtml(item.name)}</div>
+        <div class="duration-control">
+          <button onclick="changeDuration(${i},-5)">−</button>
+          <span class="duration-val">${item.duration} min</span>
+          <button onclick="changeDuration(${i},5)">+</button>
+        </div>
+      </div>
+      <button class="icon-btn" style="width:32px;height:32px;font-size:14px;" onclick="removeCustItem(${i})">✕</button>
+    `;
+    el.ondragstart = ()=>{ dragFromIdx=i; el.classList.add('dragging'); };
+    el.ondragend = ()=>{ el.classList.remove('dragging'); };
+    el.ondragover = (e)=>e.preventDefault();
+    el.ondrop = ()=>{
+      if(dragFromIdx===null || dragFromIdx===i) return;
+      const arr = state.build.days[custActiveDay];
+      const [moved] = arr.splice(dragFromIdx,1);
+      arr.splice(i,0,moved);
+      saveState();
+      renderCustomizeList();
+    };
+    list.appendChild(el);
+  });
+}
+function changeDuration(i, delta){
+  const item = state.build.days[custActiveDay][i];
+  item.duration = Math.max(5, item.duration + delta);
+  saveState();
+  renderCustomizeList();
+}
+function removeCustItem(i){
+  state.build.days[custActiveDay].splice(i,1);
+  saveState();
+  renderCustomizeList();
+  renderCustSubjectPicker();
+}
+
+function savePlan(){
+  const name = document.getElementById('plan-name-input').value.trim();
+  if(!name){ toast('Give your timetable a name first'); return; }
+  const hasAny = state.build.activeDays.some(d=>(state.build.days[d]||[]).length>0);
+  if(!hasAny){ toast('Add at least one subject to a day'); return; }
+  const editingId = state.build.editingPlanId;
+  const prior = editingId ? state.plans.find(p=>p.id===editingId) : null;
+  const planData = {
+    id: editingId || ('plan_' + Date.now().toString(36)),
+    name,
+    days: JSON.parse(JSON.stringify(state.build.days)),
+    activeDays: [...state.build.activeDays].sort((a,b)=>a-b),
+    createdAt: prior ? prior.createdAt : new Date().toISOString()
+  };
+  if(editingId){
+    const idx = state.plans.findIndex(p=>p.id===editingId);
+    if(idx>-1) state.plans[idx] = planData; else state.plans.push(planData);
+  } else {
+    state.plans.push(planData);
+  }
+  state.activePlanId = planData.id;
+  state.weekStart = getMondayISO(new Date());
+  state.progress[planData.id] = state.progress[planData.id] || {};
+  state.progress[planData.id][state.weekStart] = state.progress[planData.id][state.weekStart] || {};
+  state.timeSpent[planData.id] = state.timeSpent[planData.id] || {};
+  state.timeSpent[planData.id][state.weekStart] = state.timeSpent[planData.id][state.weekStart] || {};
+  state.build.editingPlanId = null;
+  saveState();
+  toast(editingId ? 'Timetable updated' : 'Timetable saved');
+  goTo('screen-timetable');
+}
+
+function editPlan(id){
+  const plan = state.plans.find(p=>p.id===id);
+  if(!plan) return;
+  const subjectIds = new Set();
+  Object.values(plan.days).forEach(list=>list.forEach(it=>subjectIds.add(it.id)));
+  state.build = {
+    selectedSubjects: [...subjectIds],
+    numDays: plan.activeDays.length,
+    activeDays: [...plan.activeDays],
+    days: JSON.parse(JSON.stringify(plan.days)),
+    planNameDraft: plan.name,
+    editingPlanId: plan.id
+  };
+  custActiveDay = null;
+  saveState();
+  goTo('screen-customize');
+}
+function deletePlan(id, evt){
+  if(evt) evt.stopPropagation();
+  const plan = state.plans.find(p=>p.id===id);
+  if(!plan) return;
+  if(!confirm('Delete "'+plan.name+'"? This can\'t be undone.')) return;
+  state.plans = state.plans.filter(p=>p.id!==id);
+  delete state.progress[id];
+  delete state.timeSpent[id];
+  if(state.activePlanId===id) state.activePlanId = null;
+  saveState();
+  toast('Timetable deleted');
+  renderHome();
+}
+
+/* ---------- HOME ---------- */
+function renderHome(){
+  const area = document.getElementById('home-plan-area');
+  if(!state.plans.length){
+    area.innerHTML = `<div class="empty-state">No timetables yet. Tap + to build one.</div>`;
+    return;
+  }
+  area.innerHTML = '';
+  state.plans.forEach(plan=>{
+    const {done, total} = weekProgressCounts(plan);
+    const pct = total? Math.round(done/total*100):0;
+    const initial = plan.name.trim().charAt(0).toUpperCase() || 'T';
+    const row = document.createElement('div');
+    row.className = 'plan-row';
+    row.innerHTML = `
+      <div class="plan-avatar">${escapeHtml(initial)}</div>
+      <div class="plan-row-main">
+        <div class="plan-row-top">
+          <div class="plan-row-name">${escapeHtml(plan.name)}</div>
+          <div class="plan-row-pct">${pct}%</div>
+        </div>
+        <div class="plan-row-sub">${done} of ${total} sessions done this week</div>
+        <div class="plan-row-bar"><div class="plan-row-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+      <button class="plan-row-menu" data-act="menu" aria-label="Options">✏️</button>
+    `;
+    row.querySelector('[data-act="menu"]').onclick = (e)=>{ e.stopPropagation(); openPlanMenu(plan.id); };
+    row.onclick = ()=>{ state.activePlanId = plan.id; saveState(); goTo('screen-timetable'); };
+    area.appendChild(row);
+  });
+}
+function openPlanMenu(planId){
+  const plan = state.plans.find(p=>p.id===planId);
+  if(!plan) return;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sheet-backdrop';
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) backdrop.remove(); };
+  backdrop.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-title">${escapeHtml(plan.name)}</div>
+      <div class="sheet-item" data-act="edit">✏️ Edit timetable</div>
+      <div class="sheet-item danger" data-act="delete">🗑️ Delete timetable</div>
+    </div>
+  `;
+  backdrop.querySelector('[data-act="edit"]').onclick = ()=>{ backdrop.remove(); editPlan(planId); };
+  backdrop.querySelector('[data-act="delete"]').onclick = ()=>{ backdrop.remove(); deletePlan(planId); };
+  document.body.appendChild(backdrop);
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+/* ---------- NOTES (Google Keep-style notepad) ---------- */
+let currentNoteId = null;
+
+function renderNotesList(){
+  const list = document.getElementById('notes-list');
+  const notes = [...state.notes].sort((a,b)=> new Date(b.updatedAt) - new Date(a.updatedAt));
+  if(notes.length===0){
+    list.innerHTML = '<div class="empty-state">No notes yet. Tap + to jot one down.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  notes.forEach(note=>{
+    const preview = note.text.trim() || 'Empty note';
+    const card = document.createElement('div');
+    card.className = 'note-card';
+    card.innerHTML = `
+      <div class="note-card-text">${escapeHtml(preview)}</div>
+      <div class="note-card-meta">${formatNoteDate(note.updatedAt)}</div>
+    `;
+    card.onclick = ()=>openNoteEditor(note.id);
+    list.appendChild(card);
+  });
+}
+function formatNoteDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined,{month:'short', day:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'numeric', minute:'2-digit'});
+}
+function openNoteEditor(id){
+  currentNoteId = id;
+  const textarea = document.getElementById('note-textarea');
+  const deleteBtn = document.getElementById('note-delete-btn');
+  if(id){
+    const note = state.notes.find(n=>n.id===id);
+    textarea.value = note ? note.text : '';
+    document.getElementById('note-editor-time').textContent = note ? formatNoteDate(note.updatedAt) : 'Note';
+    deleteBtn.style.display = 'flex';
+  } else {
+    textarea.value = '';
+    document.getElementById('note-editor-time').textContent = 'New note';
+    deleteBtn.style.display = 'none';
+  }
+  goTo('screen-note-editor');
+  setTimeout(()=>textarea.focus(), 250);
+}
+// Notes save automatically on the way out, Keep-style — no explicit save button needed.
+function closeNoteEditor(){
+  saveCurrentNote();
+  goTo('screen-notes');
+}
+function saveCurrentNote(){
+  const text = document.getElementById('note-textarea').value;
+  if(!text.trim()){
+    if(currentNoteId){ state.notes = state.notes.filter(n=>n.id!==currentNoteId); saveState(); }
+    return;
+  }
+  if(currentNoteId){
+    const note = state.notes.find(n=>n.id===currentNoteId);
+    if(note){ note.text = text; note.updatedAt = new Date().toISOString(); }
+  } else {
+    state.notes.push({id:'note_'+Date.now().toString(36), text, updatedAt:new Date().toISOString()});
+  }
+  saveState();
+}
+function deleteCurrentNote(){
+  if(!currentNoteId) return;
+  if(!confirm('Delete this note?')) return;
+  state.notes = state.notes.filter(n=>n.id!==currentNoteId);
+  saveState();
+  toast('Note deleted');
+  goTo('screen-notes');
+}
+
+/* ---------- Progress helpers ---------- */
+function getMondayISO(d){
+  const date = new Date(d);
+  const day = date.getDay(); // 0 Sun .. 6 Sat
+  const diff = (day===0? -6 : 1-day);
+  date.setDate(date.getDate()+diff);
+  date.setHours(0,0,0,0);
+  return date.toISOString().slice(0,10);
+}
+function weekProgressCounts(plan){
+  if(!plan) return {done:0,total:0};
+  let total=0, done=0;
+  const wp = (state.progress[plan.id] && state.progress[plan.id][state.weekStart]) || {};
+  plan.activeDays.forEach(d=>{
+    (plan.days[d]||[]).forEach((item,i)=>{
+      total++;
+      const key = d+'_'+i+'_'+item.id;
+      if(wp[key]) done++;
+    });
+  });
+  return {done, total};
+}
+
+/* ---------- TIMETABLE ---------- */
+let ttActiveDay = null;
+function renderTimetable(){
+  const plan = getActivePlan();
+  if(!plan){ goTo('screen-home'); return; }
+  document.getElementById('tt-plan-name').textContent = plan.name;
+  if(ttActiveDay===null || !plan.activeDays.includes(ttActiveDay)){
+    const todayIdx = new Date().getDay();
+    ttActiveDay = plan.activeDays.includes(todayIdx) ? todayIdx : plan.activeDays[0];
+  }
+  const tabs = document.getElementById('tt-day-select');
+  tabs.innerHTML = '';
+  plan.activeDays.forEach(d=>{
+    const tab = document.createElement('div');
+    tab.className = 'day-tab' + (d===ttActiveDay?' active':'');
+    tab.textContent = DAY_NAMES[d];
+    tab.onclick = ()=>{ ttActiveDay=d; renderTimetable(); };
+    tabs.appendChild(tab);
+  });
+  renderTTList();
+}
+function renderTTList(){
+  const plan = getActivePlan();
+  if(!plan) return;
+  const list = document.getElementById('tt-list');
+  list.innerHTML = '';
+  const items = plan.days[ttActiveDay] || [];
+  const wp = (state.progress[plan.id] && state.progress[plan.id][state.weekStart]) || {};
+  if(items.length===0){ list.innerHTML = '<div class="empty-state">Nothing scheduled this day.</div>'; }
+  let done=0;
+  items.forEach((item,i)=>{
+    const key = ttActiveDay+'_'+i+'_'+item.id;
+    const isChecked = !!wp[key];
+    if(isChecked) done++;
+    const el = document.createElement('div');
+    el.className = `tt-item ${item.tier}${isChecked?' checked':''}`;
+    el.innerHTML = `
+      <div class="spine"></div>
+      <div class="tt-main">
+        <div class="tt-name${isChecked?' strike':''}">${escapeHtml(item.name)}</div>
+        <div class="tt-dur">${item.duration} min · ${TIER_LABEL[item.tier]} · tap to start timer</div>
+      </div>
+      <div class="tt-checkbox ${isChecked?'on':''}">${isChecked?'✓':''}</div>
+    `;
+    el.querySelector('.tt-checkbox').onclick = (e)=>{ e.stopPropagation(); toggleCheck(key); };
+    el.onclick = ()=>openCountdown(ttActiveDay, i, item);
+    list.appendChild(el);
+  });
+  const pct = items.length? Math.round(done/items.length*100):0;
+  document.getElementById('tt-progress-label').textContent = DAY_NAMES[ttActiveDay]+"'s progress";
+  document.getElementById('tt-progress-pct').textContent = pct+'%';
+  document.getElementById('tt-progress-fill').style.width = pct+'%';
+}
+function toggleCheck(key){
+  const plan = getActivePlan();
+  if(!plan) return;
+  state.progress[plan.id] = state.progress[plan.id] || {};
+  state.progress[plan.id][state.weekStart] = state.progress[plan.id][state.weekStart] || {};
+  const wp = state.progress[plan.id][state.weekStart];
+  wp[key] = !wp[key];
+  saveState(); // progress is written to phone storage immediately
+  renderTTList();
+}
+
+/* ---------- COUNTDOWN TIMER ---------- */
+let sessionMemory = {}; // key -> {remaining, elapsed} kept in memory so pausing and navigating away can resume
+let timerDay=null, timerIndex=null, timerItem=null, timerKey=null;
+let timerInterval=null, timerRunning=false;
+
+function openCountdown(day, index, item){
+  timerDay=day; timerIndex=index; timerItem=item;
+  timerKey = day+'_'+index+'_'+item.id;
+  if(timerInterval){ clearInterval(timerInterval); timerInterval=null; }
+  timerRunning=false;
+  if(!sessionMemory[timerKey] || sessionMemory[timerKey].elapsed===0){
+    sessionMemory[timerKey] = {remaining:item.duration*60, elapsed:0};
+  }
+  document.getElementById('timer-subject-name').textContent = item.name;
+  const chip = document.getElementById('timer-tier-chip');
+  chip.textContent = TIER_LABEL[item.tier];
+  chip.className = 'tier-chip ' + item.tier;
+  updateTimerDisplay();
+  updateTimerButtons();
+  goTo('screen-countdown');
+}
+function updateTimerDisplay(){
+  const s = sessionMemory[timerKey];
+  if(!s) return;
+  const mm = Math.floor(s.remaining/60).toString().padStart(2,'0');
+  const ss = (s.remaining%60).toString().padStart(2,'0');
+  document.getElementById('timer-display').textContent = mm+':'+ss;
+  const total = timerItem.duration*60;
+  const pct = total ? Math.min(100, Math.round((total - s.remaining)/total*100)) : 0;
+  document.getElementById('timer-progress-fill').style.width = pct+'%';
+  document.getElementById('timer-state-label').textContent = timerRunning ? 'Studying…' : (s.elapsed>0 ? 'Paused' : 'Ready');
+}
+function updateTimerButtons(){
+  document.getElementById('btn-start').disabled = timerRunning;
+  document.getElementById('btn-pause').disabled = !timerRunning;
+}
+function startTimer(){
+  if(timerRunning) return;
+  timerRunning = true;
+  updateTimerButtons();
+  updateTimerDisplay();
+  if(state.settings.focusMode) startNativeFocusIfAvailable(Math.max(1, Math.ceil(sessionMemory[timerKey].remaining/60)));
+  timerInterval = setInterval(()=>{
+    const s = sessionMemory[timerKey];
+    if(!s){ clearInterval(timerInterval); return; }
+    if(s.remaining<=0){ finishTimer(); return; }
+    s.remaining--; s.elapsed++;
+    updateTimerDisplay();
+  },1000);
+}
+// Pausing stops the countdown without logging or checking anything off — Start resumes from here.
+function pauseTimer(){
+  if(!timerRunning) return;
+  clearInterval(timerInterval);
+  timerInterval=null;
+  timerRunning=false;
+  stopNativeFocusIfAvailable();
+  updateTimerButtons();
+  updateTimerDisplay();
+}
+// Stopping early logs whatever time was studied and checks the subject off.
+function stopTimer(){
+  clearInterval(timerInterval);
+  timerInterval=null;
+  timerRunning=false;
+  stopNativeFocusIfAvailable();
+  const minutes = logSessionTime();
+  toast('Session logged: '+minutes+' min · marked complete');
+  delete sessionMemory[timerKey];
+  goTo('screen-timetable');
+}
+// Letting the countdown run out to zero also logs the time and checks the subject off.
+function finishTimer(){
+  clearInterval(timerInterval);
+  timerInterval=null;
+  timerRunning=false;
+  stopNativeFocusIfAvailable();
+  const minutes = logSessionTime();
+  if(state.settings.notifications && 'Notification' in window && Notification.permission==='granted'){
+    new Notification("Time's Up", { body: timerItem.name + " session complete — nice work!" });
+  }
+  toast(timerItem.name+' complete · '+minutes+' min logged');
+  delete sessionMemory[timerKey];
+  goTo('screen-timetable');
+}
+function logSessionTime(){
+  const plan = getActivePlan();
+  const s = sessionMemory[timerKey];
+  const minutes = Math.max(0, Math.round((s? s.elapsed:0)/60));
+  if(!plan) return minutes;
+  state.timeSpent[plan.id] = state.timeSpent[plan.id] || {};
+  state.timeSpent[plan.id][state.weekStart] = state.timeSpent[plan.id][state.weekStart] || {};
+  state.timeSpent[plan.id][state.weekStart][timerKey] = (state.timeSpent[plan.id][state.weekStart][timerKey]||0) + minutes;
+  state.progress[plan.id] = state.progress[plan.id] || {};
+  state.progress[plan.id][state.weekStart] = state.progress[plan.id][state.weekStart] || {};
+  state.progress[plan.id][state.weekStart][timerKey] = true;
+  saveState();
+  return minutes;
+}
+function exitTimerScreen(){
+  pauseTimer();
+  goTo('screen-timetable');
+}
+
+/* ---------- WEEKLY REPORT ---------- */
+function openReport(){
+  buildReport();
+  goTo('screen-report');
+}
+function buildReport(){
+  const plan = getActivePlan();
+  const body = document.getElementById('report-body');
+  if(!plan){ body.innerHTML = '<div class="empty-state">No timetable selected.</div>'; return; }
+  const wp = (state.progress[plan.id] && state.progress[plan.id][state.weekStart]) || {};
+  const ts = (state.timeSpent[plan.id] && state.timeSpent[plan.id][state.weekStart]) || {};
+  const tally = {}; // subjectId -> {name, done, total, minutes}
+  plan.activeDays.forEach(d=>{
+    (plan.days[d]||[]).forEach((item,i)=>{
+      const key = d+'_'+i+'_'+item.id;
+      if(!tally[item.id]) tally[item.id] = {name:item.name, done:0, total:0, minutes:0};
+      tally[item.id].total++;
+      if(wp[key]) tally[item.id].done++;
+      tally[item.id].minutes += (ts[key]||0);
+    });
+  });
+  const entries = Object.values(tally);
+  if(entries.length===0){ body.innerHTML = '<div class="empty-state">No sessions scheduled this week yet.</div>'; return; }
+
+  let mostStudied = entries[0], leastStudied = entries[0];
+  entries.forEach(e=>{
+    if(e.minutes > mostStudied.minutes) mostStudied = e;
+    if((e.done/e.total) < (leastStudied.done/leastStudied.total)) leastStudied = e;
+  });
+
+  body.innerHTML = `
+    <div class="report-card star">
+      <div class="report-tag star">Most studied</div>
+      <h3 style="margin:0;">${escapeHtml(mostStudied.name)}</h3>
+      <p style="font-size:13px; opacity:.7; margin:4px 0 0;">${mostStudied.minutes} minutes logged, ${mostStudied.done}/${mostStudied.total} sessions done.</p>
+    </div>
+    <div class="report-card focus">
+      <div class="report-tag focus">Needs more work</div>
+      <h3 style="margin:0;">${escapeHtml(leastStudied.name)}</h3>
+      <p style="font-size:13px; opacity:.7; margin:4px 0 0;">Only ${leastStudied.done}/${leastStudied.total} sessions completed. Give it extra time next week.</p>
+    </div>
+    <div style="margin-top:16px;">
+      ${entries.map(e=>`
+        <div style="display:flex; justify-content:space-between; font-size:13px; padding:8px 0; border-bottom:1px solid var(--paper-soft);">
+          <span>${escapeHtml(e.name)}</span><span style="opacity:.6;">${e.done}/${e.total} · ${e.minutes}min</span>
+        </div>`).join('')}
+    </div>
+  `;
+}
+function startNewWeek(){
+  const plan = getActivePlan();
+  state.weekStart = getMondayISO(new Date());
+  if(plan){
+    state.progress[plan.id] = state.progress[plan.id] || {};
+    state.progress[plan.id][state.weekStart] = state.progress[plan.id][state.weekStart] || {};
+    state.timeSpent[plan.id] = state.timeSpent[plan.id] || {};
+    state.timeSpent[plan.id][state.weekStart] = state.timeSpent[plan.id][state.weekStart] || {};
+  }
+  saveState();
+  toast('New week started — fresh progress bar');
+  goTo('screen-timetable');
+}
+
+/* ---------- SETTINGS ---------- */
+function renderSettings(){
+  document.getElementById('notif-switch').classList.toggle('on', state.settings.notifications);
+  document.getElementById('reminder-time-input').value = state.settings.reminderTime || '16:00';
+  document.getElementById('focus-switch').classList.toggle('on', state.settings.focusMode);
+  document.getElementById('focus-apps-area').style.display = state.settings.focusMode? 'block':'none';
+  renderFocusAppTags();
+}
+function toggleNotifications(){
+  if(!state.settings.notifications){
+    requestNotifPermission(true);
+  } else {
+    state.settings.notifications = false;
+    saveState();
+    cancelStudyReminders();
+    renderSettings();
+  }
+}
+function requestNotifPermission(){
+  if(!('Notification' in window)){
+    toast('Notifications are not supported on this device yet');
+    return;
+  }
+  Notification.requestPermission().then(perm=>{
+    if(perm==='granted'){
+      state.settings.notifications = true;
+      saveState();
+      toast('Reminders turned on');
+      scheduleStudyReminders();
+    } else {
+      state.settings.notifications = false;
+      saveState();
+      toast('Notification permission was not granted');
+    }
+    renderSettings();
+  });
+}
+function setReminderTime(val){
+  state.settings.reminderTime = val;
+  saveState();
+  if(state.settings.notifications) scheduleStudyReminders();
+}
+// Schedules study reminders. Inside a Capacitor shell with the official
+// @capacitor/local-notifications plugin installed, this fires real native
+// notifications on every study day at the chosen time — even when the app is closed.
+// In a plain browser tab it falls back to the Web Notification API, which only
+// works while this tab stays open, checking once a minute for a time match.
+function scheduleStudyReminders(){
+  const plan = getActivePlan();
+  if(!state.settings.notifications || !plan) return;
+  const [hh, mm] = (state.settings.reminderTime || '16:00').split(':').map(Number);
+
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications){
+    const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+    LocalNotifications.cancel({ notifications: plan.activeDays.map(d=>({id:d+1})) }).catch(()=>{});
+    const notifications = plan.activeDays.map(d=>({
+      id: d+1, // Capacitor weekday: 1=Sunday..7=Saturday, matches DAY_NAMES index+1
+      title: "Time's Up",
+      body: "It's time to study — your " + DAY_NAMES[d] + " timetable is ready.",
+      schedule: { on: { weekday: d+1, hour: hh, minute: mm }, repeats: true }
+    }));
+    LocalNotifications.schedule({ notifications });
+    return;
+  }
+
+  if(window.__reminderInterval) clearInterval(window.__reminderInterval);
+  window.__reminderInterval = setInterval(()=>{
+    if(!state.settings.notifications) return;
+    const activePlan = getActivePlan();
+    if(!activePlan) return;
+    const now = new Date();
+    if(!activePlan.activeDays.includes(now.getDay())) return;
+    if(now.getHours()===hh && now.getMinutes()===mm && now.getSeconds()<5){
+      new Notification("Time's Up", { body: "It's time to study — open your timetable to check off today's subjects." });
+    }
+  }, 5000);
+}
+function cancelStudyReminders(){
+  if(window.__reminderInterval){ clearInterval(window.__reminderInterval); window.__reminderInterval=null; }
+  const plan = getActivePlan();
+  if(plan && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications){
+    window.Capacitor.Plugins.LocalNotifications.cancel({ notifications: plan.activeDays.map(d=>({id:d+1})) }).catch(()=>{});
+  }
+}
+
+function toggleFocusMode(){
+  state.settings.focusMode = !state.settings.focusMode;
+  saveState();
+  renderSettings();
+  if(state.settings.focusMode) toast('Focus mode armed for your next study session');
+}
+function renderFocusAppTags(){
+  const wrap = document.getElementById('focus-app-tags');
+  wrap.innerHTML = '';
+  DISTRACTION_APPS.forEach(app=>{
+    const on = state.settings.focusApps.includes(app.pkg);
+    const tag = document.createElement('span');
+    tag.className = 'app-tag' + (on?' on':'');
+    tag.textContent = app.name;
+    tag.onclick = ()=>{
+      const idx = state.settings.focusApps.indexOf(app.pkg);
+      if(idx>-1) state.settings.focusApps.splice(idx,1);
+      else state.settings.focusApps.push(app.pkg);
+      saveState();
+      renderFocusAppTags();
+    };
+    wrap.appendChild(tag);
+  });
+}
+// Hook for the native Capacitor focus-blocking plugin you add later.
+// Once wired up, this is the exact call the app makes when a timer starts with Focus Mode on:
+//   window.NativeFocus.start(['com.example.app', 'com.another.app'], 25);
+function startNativeFocusIfAvailable(minutes){
+  if(window.NativeFocus && typeof window.NativeFocus.start==='function'){
+    window.NativeFocus.start(state.settings.focusApps, minutes);
+  }
+}
+function stopNativeFocusIfAvailable(){
+  if(window.NativeFocus && typeof window.NativeFocus.stop==='function'){
+    window.NativeFocus.stop();
+  }
+}
+
+/* ---------- Toast ---------- */
+function toast(msg){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2200);
+}
+
+/* ---------- Init ---------- */
+if(!state.weekStart) state.weekStart = getMondayISO(new Date());
+if(state.weekStart !== getMondayISO(new Date())){
+  // a new week rolled over automatically — last week's data stays saved under its own date key
+  state.weekStart = getMondayISO(new Date());
+}
+saveState();
+if(state.settings.notifications) scheduleStudyReminders();
+
+// Register the service worker so the app keeps working offline after the first load.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.warn('Service worker failed to register', err));
+  });
+}
+
+</script>
+</body>
+</html>
