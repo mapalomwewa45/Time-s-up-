@@ -1,7 +1,7 @@
 """
 Run from the native-app/ folder, AFTER `npx cap add android` has created the
 android/ project. Copies the Kotlin plugin files into place and patches
-AndroidManifest.xml and MainActivity.java so NativeFocus and its service/
+AndroidManifest.xml and MainActivity.java/.kt so NativeFocus and its service/
 activity are registered. Safe to re-run — it checks before adding anything.
 """
 import os
@@ -10,18 +10,26 @@ BASE = "android/app/src/main"
 PKG_DIR = "com/timesup/app"
 FOCUS_DIR = f"{BASE}/java/{PKG_DIR}/focus"
 
+
 def copy_plugin_files():
     os.makedirs(FOCUS_DIR, exist_ok=True)
     for fname in ["NativeFocusPlugin.kt", "FocusBlockerService.kt", "BlockerOverlayActivity.kt"]:
-        with open(f"native/{fname}") as f:
-            content = f.read()
-        with open(f"{FOCUS_DIR}/{fname}", "w") as f:
+        src = f"native/{fname}"
+        dst = f"{FOCUS_DIR}/{fname}"
+        try:
+            with open(src, "r", encoding="utf-8") as f:
+                content = f.read()
+        except FileNotFoundError:
+            print(f"ERROR: Expected plugin source '{src}' not found. Ensure you have the native/ files and re-run.")
+            raise
+        with open(dst, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"Copied {fname} -> {FOCUS_DIR}/{fname}")
+        print(f"Copied {fname} -> {dst}")
+
 
 def patch_manifest():
     path = f"{BASE}/AndroidManifest.xml"
-    with open(path) as f:
+    with open(path, "r", encoding="utf-8") as f:
         manifest = f.read()
 
     if "xmlns:tools" not in manifest:
@@ -50,44 +58,101 @@ def patch_manifest():
         )
         manifest = manifest.replace("</application>", additions + "</application>", 1)
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(manifest)
     print("Patched AndroidManifest.xml")
 
+
 def patch_main_activity():
     main_activity_path = None
+    # Search for Kotlin MainActivity first, then Java
     for root, _dirs, files in os.walk(f"{BASE}/java"):
+        if "MainActivity.kt" in files:
+            main_activity_path = os.path.join(root, "MainActivity.kt")
+            break
         if "MainActivity.java" in files:
             main_activity_path = os.path.join(root, "MainActivity.java")
             break
+
     if not main_activity_path:
-        print("WARNING: MainActivity.java not found — plugin not registered. Register it manually.")
+        print("WARNING: MainActivity not found — plugin not registered. Register it manually.")
         return
 
-    with open(main_activity_path) as f:
+    with open(main_activity_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     if "registerPlugin" in content:
-        print("MainActivity.java already patched, skipping")
+        print(f"{os.path.basename(main_activity_path)} already patched, skipping")
         return
 
-    content = content.replace(
-        "import com.getcapacitor.BridgeActivity;",
-        "import android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;\nimport com.timesup.app.focus.NativeFocusPlugin;",
-    )
-    content = content.replace(
-        "public class MainActivity extends BridgeActivity {}",
-        "public class MainActivity extends BridgeActivity {\n"
-        "    @Override\n"
-        "    public void onCreate(Bundle savedInstanceState) {\n"
-        "        registerPlugin(NativeFocusPlugin.class);\n"
-        "        super.onCreate(savedInstanceState);\n"
-        "    }\n"
-        "}",
-    )
-    with open(main_activity_path, "w") as f:
+    if main_activity_path.endswith('.java'):
+        # Java-style patching (preserve existing logic)
+        content = content.replace(
+            "import com.getcapacitor.BridgeActivity;",
+            "import android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;\nimport com.timesup.app.focus.NativeFocusPlugin;",
+        )
+        content = content.replace(
+            "public class MainActivity extends BridgeActivity {}",
+            "public class MainActivity extends BridgeActivity {\n"
+            "    @Override\n"
+            "    public void onCreate(Bundle savedInstanceState) {\n"
+            "        registerPlugin(NativeFocusPlugin.class);\n"
+            "        super.onCreate(savedInstanceState);\n"
+            "    }\n"
+            "}",
+        )
+    else:
+        # Kotlin-style patching
+        # Ensure imports are present
+        if "import android.os.Bundle" not in content:
+            content = content.replace(
+                "import com.getcapacitor.BridgeActivity",
+                "import android.os.Bundle\nimport com.getcapacitor.BridgeActivity\nimport com.timesup.app.focus.NativeFocusPlugin",
+            )
+        else:
+            # ensure NativeFocusPlugin import exists
+            if "com.timesup.app.focus.NativeFocusPlugin" not in content:
+                content = content.replace(
+                    "import com.getcapacitor.BridgeActivity",
+                    "import com.getcapacitor.BridgeActivity\nimport com.timesup.app.focus.NativeFocusPlugin",
+                )
+
+        # Common Kotlin patterns: "class MainActivity : BridgeActivity()" or with braces
+        if "class MainActivity : BridgeActivity()" in content:
+            content = content.replace(
+                "class MainActivity : BridgeActivity()",
+                "class MainActivity : BridgeActivity() {\n"
+                "    override fun onCreate(savedInstanceState: Bundle?) {\n"
+                "        registerPlugin(NativeFocusPlugin::class.java)\n"
+                "        super.onCreate(savedInstanceState)\n"
+                "    }\n"
+                "}",
+            )
+        else:
+            # fallback: try to inject an onCreate after the class opening brace
+            idx = content.find("class MainActivity")
+            if idx != -1:
+                brace_idx = content.find("{", idx)
+                if brace_idx != -1:
+                    insert_at = brace_idx + 1
+                    oncreate = (
+                        "\n    override fun onCreate(savedInstanceState: Bundle?) {\n"
+                        "        registerPlugin(NativeFocusPlugin::class.java)\n"
+                        "        super.onCreate(savedInstanceState)\n"
+                        "    }\n"
+                    )
+                    content = content[:insert_at] + oncreate + content[insert_at:]
+                else:
+                    print("WARNING: Could not safely patch Kotlin MainActivity — please add plugin registration manually.")
+                    return
+            else:
+                print("WARNING: Could not find MainActivity class declaration for Kotlin; plugin not registered.")
+                return
+
+    with open(main_activity_path, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"Patched {main_activity_path}")
+
 
 if __name__ == "__main__":
     copy_plugin_files()
